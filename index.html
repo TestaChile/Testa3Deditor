@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>3D Grid Sculptor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/exporters/GLTFExporter.js"></script>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-size: 10px; }
+    .slider-container {
+  max-height: 95vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 5px;
+      font-family: Arial, sans-serif; z-index: 100; color: white; width: 240px;
+    }
+    .slider { 
+      width: 100px; 
+      margin: 5px 0; 
+      height: 4px;
+      -webkit-appearance: none;
+      background: #555;
+      border-radius: 2px;
+      outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    .slider-value {
+      display: inline-block;
+      width: 40px;
+      text-align: right;
+      margin-left: 8px;
+      font-size: 10px;
+    }
+    .random-value {
+      color: yellow;
+    }
+    button {
+      background: #444; 
+      color: white; 
+      border: none;
+      padding: 5px 8px; 
+      margin: 3px; 
+      border-radius: 3px; 
+      cursor: pointer; 
+      font-size: 10px;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #555;
+    }
+    button.active { 
+      background: #777; 
+      font-weight: bold;
+    }
+    .control-group { 
+      margin: 10px 0; 
+      padding: 8px 0; 
+      border-top: 1px solid #333; 
+    }
+    .control-item {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+    }
+    label { 
+      display: inline-block; 
+      width: 110px; 
+      margin-right: 5px;
+      font-size: 10px;
+    }
+    .god-mode-panel {
+      display: none; 
+      margin-top: 10px; 
+      padding-top: 10px; 
+      border-top: 1px solid #555;
+    }
+    .god-mode-input { 
+      margin: 10px 0;
+      display: flex;
+      align-items: center;
+    }
+    .god-mode-input label {
+      width: auto;
+      margin-right: 5px;
+    }
+    input[type="password"] { 
+      width: 60px; 
+      padding: 3px; 
+      font-size: 10px;
+      background: #333;
+      border: 1px solid #555;
+      color: white;
+      border-radius: 3px;
+    }
+    .color-palette {
+      display: flex; 
+      flex-wrap: wrap; 
+      margin-top: 5px;
+    }
+    .color-option {
+      width: 20px; 
+      height: 20px; 
+      margin: 2px;
+      cursor: pointer; 
+      border: 1px solid #fff;
+      transition: transform 0.2s;
+    }
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+    .bg-color-option {
+      width: 30px; 
+      height: 20px; 
+      margin: 2px;
+      cursor: pointer; 
+      border: 1px solid #fff;
+    }
+    .view-buttons {
+      display: flex;
+      gap: 5px;
+      margin-top: 5px;
+    }
+    .panel-title {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .axis-indicator {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 100px;
+      height: 100px;
+      z-index: 100;
+      pointer-events: none;
+    }
+  
+.slider-container::-webkit-scrollbar {
+  width: 6px;
+}
+.slider-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255,255,255,0.2);
+  border-radius: 3px;
+}
+.slider-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+</style>
+</head>
+<body>
+  <div class="slider-container">
+    <div class="panel-title">Panel de parámetros</div>
+
+    <div class="control-item">
+      <label for="subdivisionSlider">Subdivisión</label>
+      <input type="range" min="1" max="10" value="5" class="slider" id="subdivisionSlider">
+      <span class="slider-value" id="subdivisionValue">5</span>
+    </div>
+    <div class="control-item">
+      <label for="maxExtrusionSlider">Extrusión Máx</label>
+      <input type="range" min="0" max="300" value="100" class="slider" id="maxExtrusionSlider">
+      <span class="slider-value" id="maxExtrusionValue">100</span>
+    </div>
+    <div class="control-item">
+      <label for="minExtrusionSlider">Extrusión Mín</label>
+      <input type="range" min="0" max="300" value="0" class="slider" id="minExtrusionSlider">
+      <span class="slider-value" id="minExtrusionValue">0</span>
+    </div>
+    <div class="control-item">
+      <label for="randomnessSlider">Aleatoriedad Ext</label>
+      <input type="range" min="0" max="100" value="50" class="slider" id="randomnessSlider">
+      <span class="slider-value random-value" id="randomnessValue">50</span>
+    </div>
+    <div class="control-item">
+      <label for="boxSizeSlider">Tamaño</label>
+      <input type="range" min="10" max="100" value="90" class="slider" id="boxSizeSlider">
+      <span class="slider-value" id="boxSizeValue">90%</span>
+    </div>
+
+    <div class="god-mode-input">
+      <label>Premium code:</label>
+      <input type="password" id="godModeCode" placeholder="Code">
+      <button id="godModeBtn">Activate</button>
+    </div>
+
+    <div class="god-mode-panel" id="godModePanel">
+      <div class="control-item">
+        <label for="maxVerticalSlider">Desplaz. Máx</label>
+        <input type="range" min="0" max="300" value="0" class="slider" id="maxVerticalSlider">
+        <span class="slider-value" id="maxVerticalValue">0</span>
+      </div>
+      <div class="control-item">
+        <label for="minVerticalSlider">Desplaz. Mín</label>
+        <input type="range" min="0" max="300" value="0" class="slider" id="minVerticalSlider">
+        <span class="slider-value" id="minVerticalValue">0</span>
+      </div>
+      <div class="control-item">
+        <label for="verticalRandomSlider">Aleatoriedad Desp</label>
+        <input type="range" min="0" max="100" value="50" class="slider" id="verticalRandomSlider">
+        <span class="slider-value random-value" id="verticalRandomValue">50</span>
+      </div>
+      
+      <!-- Controles para la losa -->
+      <div class="control-group">
+        <div class="panel-title">Configuración de Losa</div>
+        <div class="control-item">
+          <label for="increaseSlabSizeSlider">Aumentar tamaño</label>
+          <input type="range" min="100" max="300" value="100" class="slider" id="increaseSlabSizeSlider">
+          <span class="slider-value" id="increaseSlabSizeValue">100%</span>
+        </div>
+        <div class="control-item">
+          <label for="decreaseSlabSizeSlider">Disminuir tamaño</label>
+          <input type="range" min="0" max="100" value="100" class="slider" id="decreaseSlabSizeSlider">
+          <span class="slider-value" id="decreaseSlabSizeValue">100%</span>
+        </div>
+        <div class="control-item">
+          <label for="slabSizeRandomSlider">Aleatoriedad Tamaño</label>
+          <input type="range" min="0" max="100" value="0" class="slider" id="slabSizeRandomSlider">
+          <span class="slider-value random-value" id="slabSizeRandomValue">0</span>
+        </div>
+        <div class="control-item">
+          <label for="increaseSlabThicknessSlider">Aumentar espesor</label>
+          <input type="range" min="5" max="25" value="5" class="slider" id="increaseSlabThicknessSlider">
+          <span class="slider-value" id="increaseSlabThicknessValue">5</span>
+        </div>
+        <div class="control-item">
+          <label for="decreaseSlabThicknessSlider">Disminuir espesor</label>
+          <input type="range" min="0" max="5" value="5" class="slider" id="decreaseSlabThicknessSlider">
+          <span class="slider-value" id="decreaseSlabThicknessValue">5</span>
+        </div>
+        <div class="control-item">
+          <label for="slabThicknessRandomSlider">Aleatoriedad Espesor</label>
+          <input type="range" min="0" max="100" value="0" class="slider" id="slabThicknessRandomSlider">
+          <span class="slider-value random-value" id="slabThicknessRandomValue">0</span>
+        </div>
+        <div class="control-item">
+          <label>Color Losa</label>
+          <div class="color-palette">
+            <div class="color-option" style="background-color: #228B22" data-slabcolor="#228B22"></div>
+            <div class="color-option" style="background-color: #006400" data-slabcolor="#006400"></div>
+            <div class="color-option" style="background-color: #00FF7F" data-slabcolor="#00FF7F"></div>
+            <div class="color-option" style="background-color: #32CD32" data-slabcolor="#32CD32"></div>
+            <div class="color-option" style="background-color: #3CB371" data-slabcolor="#3CB371"></div>
+          </div>
+        </div>
+        <button id="toggleSlabBtn" class="active">Mostrar Losa</button>
+      </div>
+      
+      <div class="control-group">
+        <div class="view-buttons">
+          <button id="godWireframeBtn">Wireframe</button>
+          <button id="godSolidBtn" class="active">Sólido</button>
+        </div>
+        <div class="view-buttons">
+          <button id="view1Btn">Axonométrica</button>
+          <button id="view2Btn">Isométrica</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-item">
+          <button id="godAutoRotateBtn">Autorotate</button>
+          <label for="godRotateSpeedSlider" style="width:60px;">Velocidad</label>
+          <input type="range" min="1" max="10" value="3" class="slider" id="godRotateSpeedSlider">
+          <span class="slider-value" id="rotateSpeedValue">3</span>
+        </div>
+      </div>
+      <div class="control-item">
+        <label>Color</label>
+        <div class="color-palette">
+          <div class="color-option" style="background-color: #000000" data-color="#000000"></div>
+          <div class="color-option" style="background-color: #ffffff" data-color="#ffffff"></div>
+          <div class="color-option" style="background-color: #ff0000" data-color="#ff0000"></div>
+          <div class="color-option" style="background-color: #00ff00" data-color="#00ff00"></div>
+          <div class="color-option" style="background-color: #0000ff" data-color="#0000ff"></div>
+          <div class="color-option" style="background-color: #ffff00" data-color="#ffff00"></div>
+          <div class="color-option" style="background-color: #ff00ff" data-color="#ff00ff"></div>
+          <div class="color-option" style="background-color: #00ffff" data-color="#00ffff"></div>
+          <div class="color-option" style="background-color: #ff8800" data-color="#ff8800"></div>
+          <div class="color-option" style="background-color: #4B3621" data-color="#4B3621"></div>
+          <div class="color-option" style="background: linear-gradient(45deg, #ffffff, #cccccc, #999999, #666666)" data-color="metal" id="metalColor"></div>
+          <div class="color-option" id="rainbowColor" style="background: linear-gradient(45deg, red, orange, yellow, green, cyan, blue, violet)" data-color="rainbow"></div>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Fondo</label>
+        <div style="display: flex;">
+          <div class="bg-color-option" style="background-color: #000000" data-bgcolor="#000000"></div>
+          <div class="bg-color-option" style="background-color: #ffffff" data-bgcolor="#ffffff"></div>
+          <div class="bg-color-option" style="background-color: #222222" data-bgcolor="#222222"></div>
+        </div>
+      </div>
+      <div class="control-group">
+        <button id="toggleFloorBtn" class="active">Mostrar Suelo</button>
+        <button id="exportBtn">Exportar GLB</button>
+      </div>
+      <button id="disableGodModeBtn">Desactivar Premium</button>
+    </div>
+  </div>
+
+  <div class="axis-indicator" id="axisIndicator"></div>
+
+  <script>
+    let subdivision = 5, maxExtrusion = 100, minExtrusion = 0, randomness = 50;
+    let boxSizePercent = 90, boxSize;
+    let maxVertical = 0, minVertical = 0, verticalRandomness = 50;
+    let extrusionValues = [], targetExtrusionValues = [];
+    let verticalOffsets = [], targetVerticalOffsets = [];
+    let isDragging = false, lastX, lastY;
+    let rotX = -Math.PI/4, rotY = Math.PI/4;
+    let targetRotX = rotX, targetRotY = rotY;
+    let zoom = 1, targetZoom = 1, zoomEasing = 0.1, rotEasing = 0.1;
+    let viewMode = 'solid', autoRotate = false, rotateSpeed = 3;
+    let panX = 0, panY = 0, godMode = false;
+    let modelColor = '#ffffff', rainbowMode = false, hue = 0;
+    let bgColor = '#000000';
+    let currentBoxSizePercent = 90;
+    let sizeEasing = 0.08;
+    let lastUpdateTime = 0;
+    let showFloor = true;
+    let isMetalWhite = false;
+    
+    // Variables para la losa
+    let showSlab = true;
+    let slabColor = '#228B22';
+    let slabThicknessValues = [];
+    let slabSizeValues = [];
+    let increaseSlabSize = 1.0;
+    let decreaseSlabSize = 1.0;
+    let slabSizeRandomness = 0;
+    let increaseSlabThickness = 5;
+    let decreaseSlabThickness = 5;
+    let slabThicknessRandomness = 0;
+
+    // Variables para la transición de subdivisión
+    let transitionProgress = 0;
+    let isTransitioning = false;
+    let transitionStartTime = 0;
+    let transitionDuration = 800;
+    let oldSubdivision = 5;
+    let transitionDirection = 0;
+    let columnAppearTimes = [];
+    let oldExtrusionValues = [];
+    let oldVerticalOffsets = [];
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight, WEBGL);
+      smooth();
+      updateExtrusionValues(true);
+      updateVerticalOffsets(true);
+      updateSlabValues(true);
+      initializeTransitionOrder();
+
+      // Set initial active color and background
+      document.querySelector('.color-option[data-color="#ffffff"]').style.borderColor = '#0ff';
+      document.querySelector('.bg-color-option[data-bgcolor="#000000"]').style.borderColor = '#0ff';
+      document.querySelector('.color-option[data-slabcolor="#228B22"]').style.borderColor = '#0ff';
+
+      document.getElementById('subdivisionSlider').oninput = e => {
+        let newSubdivision = +e.target.value;
+        document.getElementById('subdivisionValue').textContent = newSubdivision;
+        
+        transitionDirection = newSubdivision > subdivision ? 1 : -1;
+        oldSubdivision = subdivision;
+        subdivision = newSubdivision;
+        
+        // Guardar los valores antiguos para la transición
+        oldExtrusionValues = [...extrusionValues];
+        oldVerticalOffsets = [...verticalOffsets];
+        
+        transitionProgress = 0;
+        isTransitioning = true;
+        transitionStartTime = millis();
+        
+        updateExtrusionValues(true);
+        updateVerticalOffsets(true);
+        updateSlabValues(true);
+        initializeTransitionOrder();
+      };
+
+      document.getElementById('maxExtrusionSlider').oninput = e => {
+        maxExtrusion = +e.target.value;
+        document.getElementById('maxExtrusionValue').textContent = maxExtrusion;
+        updateExtrusionValues();
+      };
+      document.getElementById('minExtrusionSlider').oninput = e => {
+        minExtrusion = +e.target.value;
+        document.getElementById('minExtrusionValue').textContent = minExtrusion;
+        updateExtrusionValues();
+      };
+      document.getElementById('randomnessSlider').oninput = e => {
+        randomness = +e.target.value;
+        document.getElementById('randomnessValue').textContent = randomness;
+        updateExtrusionValues();
+      };
+      document.getElementById('boxSizeSlider').oninput = e => {
+        boxSizePercent = +e.target.value;
+        document.getElementById('boxSizeValue').textContent = boxSizePercent + '%';
+      };
+
+      // Controles para la losa
+      document.getElementById('increaseSlabSizeSlider').oninput = e => {
+        increaseSlabSize = +e.target.value / 100;
+        document.getElementById('increaseSlabSizeValue').textContent = e.target.value + '%';
+        updateSlabValues();
+      };
+      document.getElementById('decreaseSlabSizeSlider').oninput = e => {
+        decreaseSlabSize = +e.target.value / 100;
+        document.getElementById('decreaseSlabSizeValue').textContent = e.target.value + '%';
+        updateSlabValues();
+      };
+      document.getElementById('slabSizeRandomSlider').oninput = e => {
+        slabSizeRandomness = +e.target.value;
+        document.getElementById('slabSizeRandomValue').textContent = slabSizeRandomness;
+        updateSlabValues();
+      };
+      document.getElementById('increaseSlabThicknessSlider').oninput = e => {
+        increaseSlabThickness = +e.target.value;
+        document.getElementById('increaseSlabThicknessValue').textContent = increaseSlabThickness;
+        updateSlabValues();
+      };
+      document.getElementById('decreaseSlabThicknessSlider').oninput = e => {
+        decreaseSlabThickness = +e.target.value;
+        document.getElementById('decreaseSlabThicknessValue').textContent = decreaseSlabThickness;
+        updateSlabValues();
+      };
+      document.getElementById('slabThicknessRandomSlider').oninput = e => {
+        slabThicknessRandomness = +e.target.value;
+        document.getElementById('slabThicknessRandomValue').textContent = slabThicknessRandomness;
+        updateSlabValues();
+      };
+      document.getElementById('toggleSlabBtn').onclick = () => {
+        showSlab = !showSlab;
+        document.getElementById('toggleSlabBtn').classList.toggle('active', showSlab);
+        document.getElementById('toggleSlabBtn').textContent = showSlab ? 'Mostrar Losa' : 'Ocultar Losa';
+      };
+
+      document.getElementById('godModeBtn').onclick = () => {
+        if (document.getElementById('godModeCode').value === '2565') {
+          godMode = true;
+          document.getElementById('godModePanel').style.display = 'block';
+          document.getElementById('godModeCode').value = '';
+        }
+      };
+      document.getElementById('disableGodModeBtn').onclick = () => {
+        godMode = false;
+        document.getElementById('godModePanel').style.display = 'none';
+      };
+      document.getElementById('maxVerticalSlider').oninput = e => {
+        maxVertical = +e.target.value;
+        document.getElementById('maxVerticalValue').textContent = maxVertical;
+        updateVerticalOffsets();
+      };
+      document.getElementById('minVerticalSlider').oninput = e => {
+        minVertical = +e.target.value;
+        document.getElementById('minVerticalValue').textContent = minVertical;
+        updateVerticalOffsets();
+      };
+      document.getElementById('verticalRandomSlider').oninput = e => {
+        verticalRandomness = +e.target.value;
+        document.getElementById('verticalRandomValue').textContent = verticalRandomness;
+        updateVerticalOffsets();
+      };
+      document.getElementById('godWireframeBtn').onclick = () => {
+        viewMode = 'wireframe';
+        toggleButtonActive('godWireframeBtn', ['godSolidBtn']);
+      };
+      document.getElementById('godSolidBtn').onclick = () => {
+        viewMode = 'solid';
+        toggleButtonActive('godSolidBtn', ['godWireframeBtn']);
+      };
+      document.getElementById('view1Btn').onclick = () => {
+        targetRotX = -Math.PI/6;
+        targetRotY = Math.PI/4;
+      };
+      document.getElementById('view2Btn').onclick = () => {
+        targetRotX = -Math.PI/4;
+        targetRotY = Math.PI/4;
+      };
+      document.getElementById('godAutoRotateBtn').onclick = () => {
+        autoRotate = !autoRotate;
+        document.getElementById('godAutoRotateBtn').classList.toggle('active', autoRotate);
+      };
+      document.getElementById('godRotateSpeedSlider').oninput = e => {
+        rotateSpeed = +e.target.value;
+        document.getElementById('rotateSpeedValue').textContent = rotateSpeed;
+      };
+      document.getElementById('toggleFloorBtn').onclick = () => {
+        showFloor = !showFloor;
+        document.getElementById('toggleFloorBtn').classList.toggle('active', showFloor);
+        document.getElementById('toggleFloorBtn').textContent = showFloor ? 'Mostrar Suelo' : 'Ocultar Suelo';
+      };
+      document.getElementById('exportBtn').onclick = exportGLB;
+
+      document.querySelectorAll('.color-option').forEach(opt => {
+        opt.onclick = () => {
+          rainbowMode = opt.dataset.color === 'rainbow';
+          isMetalWhite = opt.dataset.color === 'metal';
+          if (!rainbowMode && !isMetalWhite) modelColor = opt.dataset.color;
+          document.querySelectorAll('.color-option').forEach(o => o.style.borderColor = '#fff');
+          opt.style.borderColor = '#0ff';
+        };
+      });
+
+      document.querySelectorAll('.color-option[data-slabcolor]').forEach(opt => {
+        opt.onclick = () => {
+          slabColor = opt.dataset.slabcolor;
+          document.querySelectorAll('.color-option[data-slabcolor]').forEach(o => o.style.borderColor = '#fff');
+          opt.style.borderColor = '#0ff';
+        };
+      });
+
+      document.querySelectorAll('.bg-color-option').forEach(opt => {
+        opt.onclick = () => {
+          bgColor = opt.dataset.bgcolor;
+          document.querySelectorAll('.bg-color-option').forEach(o => o.style.borderColor = '#fff');
+          opt.style.borderColor = '#0ff';
+        };
+      });
+
+      let canvas = document.querySelector('canvas');
+      canvas.onmousedown = e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
+      canvas.onmousemove = e => {
+        if (isDragging) {
+          let dx = e.clientX - lastX;
+          let dy = e.clientY - lastY;
+          keyIsDown(SHIFT) ? (panX += dx * 0.5, panY += dy * 0.5)
+                           : (targetRotY += dx * 0.01, targetRotX -= dy * 0.01);
+          lastX = e.clientX; lastY = e.clientY;
+        }
+      };
+      canvas.onmouseup = () => isDragging = false;
+      canvas.onmouseleave = () => isDragging = false;
+      canvas.onwheel = e => {
+        targetZoom += e.deltaY * -0.005;
+        targetZoom = constrain(targetZoom, 0.5, 2);
+        e.preventDefault();
+      };
+    }
+
+    function updateSlabValues(force = false) {
+      slabThicknessValues = [];
+      slabSizeValues = [];
+      
+      for (let i = 0; i < subdivision * subdivision; i++) {
+        // Calcular espesor aleatorio
+        let thickness = random(decreaseSlabThickness, increaseSlabThickness);
+        thickness = lerp((decreaseSlabThickness + increaseSlabThickness) / 2, thickness, 
+                      map(slabThicknessRandomness, 0, 100, 0, 1));
+        slabThicknessValues.push(thickness);
+        
+        // Calcular tamaño aleatorio
+        let size = random(decreaseSlabSize, increaseSlabSize);
+        size = lerp((decreaseSlabSize + increaseSlabSize) / 2, size, 
+                  map(slabSizeRandomness, 0, 100, 0, 1));
+        slabSizeValues.push(size);
+      }
+    }
+
+    function initializeTransitionOrder() {
+      columnAppearTimes = [];
+      
+      // Creamos una lista de todas las posiciones de columna
+      let positions = [];
+      for (let x = 0; x < subdivision; x++) {
+        for (let z = 0; z < subdivision; z++) {
+          positions.push({x, z});
+        }
+      }
+      
+      // Ordenamos las posiciones basadas en distancia al centro con algo de aleatoriedad
+      positions.sort((a, b) => {
+        let distA = dist(a.x, a.z, (subdivision-1)/2, (subdivision-1)/2);
+        let distB = dist(b.x, b.z, (subdivision-1)/2, (subdivision-1)/2);
+        return (distA + random(-distA*0.3, distA*0.3)) - (distB + random(-distB*0.3, distB*0.3));
+      });
+      
+      // Asignamos tiempos de aparición proporcionales a su posición en el orden
+      for (let i = 0; i < positions.length; i++) {
+        columnAppearTimes[i] = map(i, 0, positions.length-1, 0, 1);
+      }
+    }
+
+    function toggleButtonActive(activeId, inactiveIds) {
+      document.getElementById(activeId).classList.add('active');
+      inactiveIds.forEach(id => document.getElementById(id).classList.remove('active'));
+    }
+
+    function updateExtrusionValues(force = false) {
+      targetExtrusionValues = [];
+      for (let i = 0; i < subdivision * subdivision; i++) {
+        let val = random(minExtrusion, maxExtrusion);
+        val = lerp((minExtrusion + maxExtrusion) / 2, val, map(randomness, 0, 100, 0, 1));
+        targetExtrusionValues.push(val);
+      }
+      if (force || extrusionValues.length !== targetExtrusionValues.length) {
+        extrusionValues = [...targetExtrusionValues];
+      }
+    }
+
+    function updateVerticalOffsets(force = false) {
+      targetVerticalOffsets = [];
+      for (let i = 0; i < subdivision * subdivision; i++) {
+        let val = random(minVertical, maxVertical);
+        val = lerp((minVertical + maxVertical) / 2, val, map(verticalRandomness, 0, 100, 0, 1));
+        targetVerticalOffsets.push(val);
+      }
+      if (force || verticalOffsets.length !== targetVerticalOffsets.length) {
+        verticalOffsets = [...targetVerticalOffsets];
+      }
+    }
+
+    function getGridPosition(x, z, size, subdiv) {
+      return [(x - subdiv / 2 + 0.5) * size, (z - subdiv / 2 + 0.5) * size];
+    }
+
+    function drawAxisIndicator() {
+      const indicator = document.getElementById('axisIndicator');
+      const size = 80;
+      const svg = `
+        <svg width="${size}" height="${size}" viewBox="0 0 100 100">
+          <line x1="10" y1="90" x2="40" y2="90" stroke="red" stroke-width="2" />
+          <text x="45" y="93" fill="red" font-size="10">X</text>
+          
+          <line x1="10" y1="90" x2="10" y2="60" stroke="green" stroke-width="2" />
+          <text x="5" y="55" fill="green" font-size="10">Y</text>
+          
+          <line x1="10" y1="90" x2="30" y2="70" stroke="blue" stroke-width="2" />
+          <text x="35" y="65" fill="blue" font-size="10">Z</text>
+          
+          <!-- Small cube representation -->
+          <rect x="60" y="40" width="30" height="30" fill="none" stroke="white" stroke-width="1" />
+          <line x1="60" y1="40" x2="75" y2="25" stroke="white" stroke-width="1" />
+          <line x1="90" y1="40" x2="105" y2="25" stroke="white" stroke-width="1" />
+          <line x1="60" y1="70" x2="75" y2="55" stroke="white" stroke-width="1" />
+          <line x1="90" y1="70" x2="105" y2="55" stroke="white" stroke-width="1" />
+          <rect x="75" y="25" width="30" height="30" fill="none" stroke="white" stroke-width="1" />
+        </svg>
+      `;
+      indicator.innerHTML = svg;
+      
+      const rotationX = degrees(rotX);
+      const rotationY = degrees(rotY);
+      indicator.style.transform = `rotateX(${rotationX}deg) rotateY(${rotationY}deg)`;
+    }
+
+    function draw() {
+      let now = millis();
+      if (now - lastUpdateTime < 16) return;
+      lastUpdateTime = now;
+      
+      background(bgColor === '#000000' ? 0 : bgColor === '#ffffff' ? 255 : color(bgColor));
+      
+      // Ajustamos las luces para que iluminen desde abajo (dirección invertida)
+      ambientLight(40);
+      directionalLight(200, 200, 200, 0, 1, 1); // Cambiamos la dirección de la luz principal
+      directionalLight(100, 100, 100, -1, -1, -1); // Añadimos una segunda luz para mejor iluminación
+
+      zoom = lerp(zoom, targetZoom, zoomEasing);
+      rotX = lerp(rotX, targetRotX, rotEasing);
+      rotY = lerp(rotY, targetRotY, rotEasing);
+      currentBoxSizePercent = lerp(currentBoxSizePercent, boxSizePercent, sizeEasing);
+
+      if (autoRotate) targetRotY += 0.005 * rotateSpeed;
+      
+      drawAxisIndicator();
+      
+      push();
+      scale(zoom);
+      translate(panX, panY);
+      rotateX(rotX);
+      rotateY(rotY);
+      
+      let baseSize = min(width, height) * 0.5 / subdivision;
+      boxSize = baseSize * currentBoxSizePercent / 100;
+
+      for (let i = 0; i < extrusionValues.length; i++) {
+        if (i < targetExtrusionValues.length) {
+          extrusionValues[i] = lerp(extrusionValues[i], targetExtrusionValues[i], 0.1);
+        }
+      }
+      
+      for (let i = 0; i < verticalOffsets.length; i++) {
+        if (i < targetVerticalOffsets.length) {
+          verticalOffsets[i] = lerp(verticalOffsets[i], targetVerticalOffsets[i], 0.1);
+        }
+      }
+
+      if (isTransitioning) {
+        transitionProgress = (now - transitionStartTime) / transitionDuration;
+        
+        if (transitionProgress >= 1) {
+          transitionProgress = 1;
+          isTransitioning = false;
+          transitionDirection = 0;
+        }
+      }
+
+      let c;
+      if (rainbowMode) {
+        c = color(`hsl(${hue}, 100%, 60%)`);
+        hue = (hue + 1) % 360;
+      } else if (isMetalWhite) {
+        c = color(255, 255, 255, 200);
+      } else {
+        c = color(modelColor);
+      }
+
+      if (viewMode === 'wireframe') { 
+        noFill(); 
+        stroke(c); 
+        strokeWeight(1); 
+      } 
+      else { 
+        if (isMetalWhite) {
+          specularMaterial(255, 255, 255);
+          shininess(50);
+        } else {
+          fill(c); 
+        }
+        stroke(100); 
+        strokeWeight(0.5); 
+      }
+
+      if (showFloor) {
+        push();
+        fill(50);
+        noStroke();
+        translate(0, 0, 0);
+        rotateX(Math.PI/2);
+        plane(subdivision * boxSize * 1.2, subdivision * boxSize * 1.2);
+        pop();
+      }
+
+      for (let x = 0; x < subdivision; x++) {
+        for (let z = 0; z < subdivision; z++) {
+          let idx = x * subdivision + z;
+          if (idx >= extrusionValues.length) continue;
+          
+          let h = extrusionValues[idx];
+          let offset = idx < verticalOffsets.length ? verticalOffsets[idx] : 0;
+          let [posX, posZ] = getGridPosition(x, z, boxSize, subdivision);
+          
+          // Determinar si esta columna debe mostrarse durante la transición
+          let shouldDraw = true;
+          let scaleY = 1;
+          
+          if (isTransitioning) {
+            // Encontrar el índice de esta columna en el orden de transición
+            let transitionIndex = -1;
+            for (let i = 0; i < columnAppearTimes.length; i++) {
+              if (i < subdivision * subdivision) {
+                transitionIndex = i;
+                break;
+              }
+            }
+            
+            if (transitionIndex >= 0) {
+              let appearTime = columnAppearTimes[transitionIndex];
+              
+              if (transitionDirection > 0) { // Aumentando subdivisión
+                shouldDraw = transitionProgress >= appearTime;
+                if (shouldDraw) {
+                  let growthProgress = constrain((transitionProgress - appearTime) / 0.3, 0, 1);
+                  scaleY = easeOutBack(growthProgress);
+                }
+              } else if (transitionDirection < 0) { // Disminuyendo subdivisión
+                shouldDraw = transitionProgress <= (1 - appearTime);
+                if (!shouldDraw) {
+                  let shrinkProgress = constrain((transitionProgress - (1 - appearTime - 0.3)) / 0.3, 0, 1);
+                  scaleY = 1 - easeInOutCubic(shrinkProgress);
+                  shouldDraw = scaleY > 0.01;
+                }
+              }
+            }
+          }
+          
+          if (h > 0 && shouldDraw) {
+            push();
+            // Cambiamos el signo de la posición Y para que extruya hacia arriba
+            translate(posX, -(offset + h/2 * scaleY), posZ);
+            
+            // Aplicar efecto de escala solo en Y para el crecimiento
+            scale(1, scaleY, 1);
+            
+            box(boxSize * 0.95, h, boxSize * 0.95);
+            pop();
+            
+            if (showSlab && godMode && idx < slabThicknessValues.length && idx < slabSizeValues.length) {
+              let slabThickness = slabThicknessValues[idx];
+              let slabSize = boxSize * slabSizeValues[idx];
+              
+              if (slabThickness > 0 && slabSize > 0) {
+                push();
+                if (viewMode === 'wireframe') {
+                  noFill();
+                  stroke(slabColor);
+                } else {
+                  fill(slabColor);
+                  stroke(80);
+                }
+                
+                // Posición de la losa (arriba de la columna)
+                translate(posX, -(offset + h * scaleY + slabThickness/2), posZ);
+                
+                // Aplicar mismo efecto de transición a la losa
+                scale(1, scaleY, 1);
+                
+                box(slabSize, slabThickness, slabSize);
+                pop();
+              }
+            }
+          }
+        }
+      }
+      
+      pop();
+    }
+
+    function easeOutBack(x) {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * pow(x - 1, 3) + c1 * pow(x - 1, 2);
+    }
+
+    function easeInOutCubic(x) {
+      return x < 0.5 ? 4 * x * x * x : 1 - pow(-2 * x + 2, 3) / 2;
+    }
+
+    function exportGLB() {
+      const scene = new THREE.Scene();
+      let baseSize = min(width, height) * 0.5 / subdivision;
+      let boxSize = baseSize * boxSizePercent / 100;
+      let color = new THREE.Color(modelColor);
+      let slabThreeColor = new THREE.Color(slabColor);
+
+      const ambientLight = new THREE.AmbientLight(0x404040);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(0, 1, 1); // Ajustamos la dirección de la luz para que ilumine desde abajo
+      scene.add(directionalLight);
+
+      for (let x = 0; x < subdivision; x++) {
+        for (let z = 0; z < subdivision; z++) {
+          let idx = x * subdivision + z;
+          if (idx >= extrusionValues.length) continue;
+          
+          let h = extrusionValues[idx];
+          let verticalOffset = idx < verticalOffsets.length ? verticalOffsets[idx] : 0;
+          
+          if (h > 0 || godMode) {
+            let geom = new THREE.BoxGeometry(boxSize * 0.95, h, boxSize * 0.95);
+            let mat = new THREE.MeshStandardMaterial({ 
+              color: isMetalWhite ? new THREE.Color(0xffffff) : color,
+              roughness: isMetalWhite ? 0 : 0.5,
+              metalness: isMetalWhite ? 1 : 0.5
+            });
+            let cube = new THREE.Mesh(geom, mat);
+            cube.position.set(
+              (x - subdivision/2 + 0.5)*boxSize, 
+              -(verticalOffset + h/2),
+              (z - subdivision/2 + 0.5)*boxSize
+            );
+            scene.add(cube);
+            
+            if (showSlab && godMode && h > 0 && idx < slabThicknessValues.length && idx < slabSizeValues.length) {
+              let slabThickness = slabThicknessValues[idx];
+              let slabSize = boxSize * slabSizeValues[idx];
+              
+              if (slabThickness > 0 && slabSize > 0) {
+                let slabGeom = new THREE.BoxGeometry(slabSize, slabThickness, slabSize);
+                let slabMat = new THREE.MeshStandardMaterial({ 
+                  color: slabThreeColor,
+                  roughness: 0.7,
+                  metalness: 0.3
+                });
+                let slab = new THREE.Mesh(slabGeom, slabMat);
+                slab.position.set(
+                  (x - subdivision/2 + 0.5)*boxSize,
+                  -(verticalOffset + h + slabThickness/2),
+                  (z - subdivision/2 + 0.5)*boxSize
+                );
+                scene.add(slab);
+              }
+            }
+          }
+        }
+      }
+
+      if (showFloor) {
+        const planeGeometry = new THREE.PlaneGeometry(subdivision * boxSize * 1.2, subdivision * boxSize * 1.2);
+        const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, side: THREE.DoubleSide });
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = 0;
+        scene.add(plane);
+      }
+
+      const exporter = new THREE.GLTFExporter();
+      exporter.parse(scene, glb => {
+        const blob = new Blob([glb], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = '3d_grid_sculptor_model.glb';
+        link.click();
+      }, { binary: true });
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+
+    function degrees(radians) {
+      return radians * 180 / Math.PI;
+    }
+  </script>
+</body>
+</html>
