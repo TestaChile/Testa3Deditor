@@ -268,7 +268,7 @@
         <div class="view-buttons">
           <button id="godWireframeBtn">Wireframe</button>
           <button id="godSolidBtn" class="active">Sólido</button>
-          <button id="godVideogameBtn">Videogame</button>
+          <button id="godPixelBtn">Pixel</button>
         </div>
         <div class="view-buttons">
           <button id="view1Btn">Axonométrica</button>
@@ -318,8 +318,6 @@
 
   <div class="axis-indicator" id="axisIndicator"></div>
 
-  <!-- The required textures must exist in the same directory as the HTML: ground.png and grass.png -->
-
   <script>
     let subdivision = 5, maxExtrusion = 100, minExtrusion = 0, randomness = 50;
     let boxSizePercent = 90, boxSize;
@@ -352,6 +350,10 @@
     let decreaseSlabThickness = 5;
     let slabThicknessRandomness = 0;
 
+    // Variables para texturas
+    let groundTexture, grassTexture;
+    let texturesLoaded = false;
+
     // Variables para la transición de subdivisión
     let transitionProgress = 0;
     let isTransitioning = false;
@@ -363,15 +365,10 @@
     let oldExtrusionValues = [];
     let oldVerticalOffsets = [];
 
-    // --- Videogame Mode ---
-    let groundTex, grassTex;
-    let groundTexLoaded = false, grassTexLoaded = false;
-    let videogameMode = false;
-
     function preload() {
-      // These will load before setup in p5.js
-      groundTex = loadImage('ground.png', () => { groundTexLoaded = true; }, () => {});
-      grassTex = loadImage('grass.png', () => { grassTexLoaded = true; }, () => {});
+      // Precargar las texturas
+      groundTexture = loadImage('ground.png');
+      grassTexture = loadImage('grass.png');
     }
 
     function setup() {
@@ -494,18 +491,15 @@
       };
       document.getElementById('godWireframeBtn').onclick = () => {
         viewMode = 'wireframe';
-        videogameMode = false;
-        toggleButtonActive('godWireframeBtn', ['godSolidBtn', 'godVideogameBtn']);
+        toggleButtonActive('godWireframeBtn', ['godSolidBtn', 'godPixelBtn']);
       };
       document.getElementById('godSolidBtn').onclick = () => {
         viewMode = 'solid';
-        videogameMode = false;
-        toggleButtonActive('godSolidBtn', ['godWireframeBtn', 'godVideogameBtn']);
+        toggleButtonActive('godSolidBtn', ['godWireframeBtn', 'godPixelBtn']);
       };
-      document.getElementById('godVideogameBtn').onclick = () => {
-        viewMode = 'videogame';
-        videogameMode = true;
-        toggleButtonActive('godVideogameBtn', ['godWireframeBtn', 'godSolidBtn']);
+      document.getElementById('godPixelBtn').onclick = () => {
+        viewMode = 'pixel';
+        toggleButtonActive('godPixelBtn', ['godWireframeBtn', 'godSolidBtn']);
       };
       document.getElementById('view1Btn').onclick = () => {
         targetRotX = -Math.PI/6;
@@ -532,12 +526,6 @@
 
       document.querySelectorAll('.color-option').forEach(opt => {
         opt.onclick = () => {
-          // If in videogame mode, automatically revert to solid mode
-          if (viewMode === 'videogame') {
-            viewMode = 'solid';
-            videogameMode = false;
-            toggleButtonActive('godSolidBtn', ['godWireframeBtn', 'godVideogameBtn']);
-          }
           rainbowMode = opt.dataset.color === 'rainbow';
           isMetalWhite = opt.dataset.color === 'metal';
           if (!rainbowMode && !isMetalWhite) modelColor = opt.dataset.color;
@@ -750,18 +738,12 @@
         c = color(modelColor);
       }
 
-      // --- Videogame Mode: Use textures for columns and slabs ---
-      let useVideogame = (viewMode === 'videogame') && groundTexLoaded && grassTexLoaded;
-
       if (viewMode === 'wireframe') { 
         noFill(); 
         stroke(c); 
         strokeWeight(1); 
       } 
-      else if (useVideogame) {
-        noStroke();
-      }
-      else { 
+      else if (viewMode === 'solid') { 
         if (isMetalWhite) {
           specularMaterial(255, 255, 255);
           shininess(50);
@@ -770,6 +752,10 @@
         }
         stroke(100); 
         strokeWeight(0.5); 
+      }
+      else if (viewMode === 'pixel') {
+        stroke(100);
+        strokeWeight(0.5);
       }
 
       if (showFloor) {
@@ -827,16 +813,52 @@
           
           if (h > 0 && shouldDraw) {
             push();
+            // Cambiamos el signo de la posición Y para que extruya hacia arriba
             translate(posX, -(offset + h/2 * scaleY), posZ);
-
-            // Videogame mode: use texture for columns
-            if (useVideogame) {
-              noStroke();
-              texture(groundTex);
-              box(boxSize * 0.95, h, boxSize * 0.95);
+            
+            // Aplicar efecto de escala solo en Y para el crecimiento
+            scale(1, scaleY, 1);
+            
+            if (viewMode === 'pixel' && groundTexture) {
+              texture(groundTexture);
+              textureWrap(REPEAT);
+              let repeatX = boxSize * 0.95 / 50; // Ajustar según el tamaño deseado del patrón
+              let repeatY = h / 50;
+              textureMode(NORMAL);
+              beginShape();
+              vertex(-boxSize * 0.95/2, -h/2, -boxSize * 0.95/2, 0, 0);
+              vertex(boxSize * 0.95/2, -h/2, -boxSize * 0.95/2, repeatX, 0);
+              vertex(boxSize * 0.95/2, h/2, -boxSize * 0.95/2, repeatX, repeatY);
+              vertex(-boxSize * 0.95/2, h/2, -boxSize * 0.95/2, 0, repeatY);
+              endShape(CLOSE);
+              
+              beginShape();
+              vertex(boxSize * 0.95/2, -h/2, -boxSize * 0.95/2, 0, 0);
+              vertex(boxSize * 0.95/2, -h/2, boxSize * 0.95/2, repeatX, 0);
+              vertex(boxSize * 0.95/2, h/2, boxSize * 0.95/2, repeatX, repeatY);
+              vertex(boxSize * 0.95/2, h/2, -boxSize * 0.95/2, 0, repeatY);
+              endShape(CLOSE);
+              
+              beginShape();
+              vertex(boxSize * 0.95/2, -h/2, boxSize * 0.95/2, 0, 0);
+              vertex(-boxSize * 0.95/2, -h/2, boxSize * 0.95/2, repeatX, 0);
+              vertex(-boxSize * 0.95/2, h/2, boxSize * 0.95/2, repeatX, repeatY);
+              vertex(boxSize * 0.95/2, h/2, boxSize * 0.95/2, 0, repeatY);
+              endShape(CLOSE);
+              
+              beginShape();
+              vertex(-boxSize * 0.95/2, -h/2, boxSize * 0.95/2, 0, 0);
+              vertex(-boxSize * 0.95/2, -h/2, -boxSize * 0.95/2, repeatX, 0);
+              vertex(-boxSize * 0.95/2, h/2, -boxSize * 0.95/2, repeatX, repeatY);
+              vertex(-boxSize * 0.95/2, h/2, boxSize * 0.95/2, 0, repeatY);
+              endShape(CLOSE);
+              
+              // Top and bottom faces
+              fill(100);
+              box(boxSize * 0.95, 0.1, boxSize * 0.95);
+              translate(0, -h/2, 0);
+              box(boxSize * 0.95, 0.1, boxSize * 0.95);
             } else {
-              // Apply possible scale for transition effect
-              scale(1, scaleY, 1);
               box(boxSize * 0.95, h, boxSize * 0.95);
             }
             pop();
@@ -847,23 +869,62 @@
               
               if (slabThickness > 0 && slabSize > 0) {
                 push();
+                if (viewMode === 'wireframe') {
+                  noFill();
+                  stroke(slabColor);
+                } else if (viewMode === 'solid') {
+                  fill(slabColor);
+                  stroke(80);
+                } else if (viewMode === 'pixel' && grassTexture) {
+                  texture(grassTexture);
+                  textureWrap(REPEAT);
+                  stroke(80);
+                }
+                
                 // Posición de la losa (arriba de la columna)
                 translate(posX, -(offset + h * scaleY + slabThickness/2), posZ);
-
-                if (useVideogame) {
-                  noStroke();
-                  texture(grassTex);
-                  box(slabSize, slabThickness, slabSize);
+                
+                // Aplicar mismo efecto de transición a la losa
+                scale(1, scaleY, 1);
+                
+                if (viewMode === 'pixel' && grassTexture) {
+                  let repeatX = slabSize / 50;
+                  let repeatY = slabThickness / 50;
+                  textureMode(NORMAL);
+                  beginShape();
+                  vertex(-slabSize/2, -slabThickness/2, -slabSize/2, 0, 0);
+                  vertex(slabSize/2, -slabThickness/2, -slabSize/2, repeatX, 0);
+                  vertex(slabSize/2, slabThickness/2, -slabSize/2, repeatX, repeatY);
+                  vertex(-slabSize/2, slabThickness/2, -slabSize/2, 0, repeatY);
+                  endShape(CLOSE);
+                  
+                  beginShape();
+                  vertex(slabSize/2, -slabThickness/2, -slabSize/2, 0, 0);
+                  vertex(slabSize/2, -slabThickness/2, slabSize/2, repeatX, 0);
+                  vertex(slabSize/2, slabThickness/2, slabSize/2, repeatX, repeatY);
+                  vertex(slabSize/2, slabThickness/2, -slabSize/2, 0, repeatY);
+                  endShape(CLOSE);
+                  
+                  beginShape();
+                  vertex(slabSize/2, -slabThickness/2, slabSize/2, 0, 0);
+                  vertex(-slabSize/2, -slabThickness/2, slabSize/2, repeatX, 0);
+                  vertex(-slabSize/2, slabThickness/2, slabSize/2, repeatX, repeatY);
+                  vertex(slabSize/2, slabThickness/2, slabSize/2, 0, repeatY);
+                  endShape(CLOSE);
+                  
+                  beginShape();
+                  vertex(-slabSize/2, -slabThickness/2, slabSize/2, 0, 0);
+                  vertex(-slabSize/2, -slabThickness/2, -slabSize/2, repeatX, 0);
+                  vertex(-slabSize/2, slabThickness/2, -slabSize/2, repeatX, repeatY);
+                  vertex(-slabSize/2, slabThickness/2, slabSize/2, 0, repeatY);
+                  endShape(CLOSE);
+                  
+                  // Top and bottom faces
+                  fill(slabColor);
+                  box(slabSize, 0.1, slabSize);
+                  translate(0, -slabThickness/2, 0);
+                  box(slabSize, 0.1, slabSize);
                 } else {
-                  // Apply same effect of scale for transition
-                  scale(1, scaleY, 1);
-                  if (viewMode === 'wireframe') {
-                    noFill();
-                    stroke(slabColor);
-                  } else {
-                    fill(slabColor);
-                    stroke(80);
-                  }
                   box(slabSize, slabThickness, slabSize);
                 }
                 pop();
@@ -887,7 +948,6 @@
     }
 
     function exportGLB() {
-      // Export will always export in solid mode (no texture), as GLTFExporter does not support p5.js texture export
       const scene = new THREE.Scene();
       let baseSize = min(width, height) * 0.5 / subdivision;
       let boxSize = baseSize * boxSizePercent / 100;
