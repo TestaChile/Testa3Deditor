@@ -10,10 +10,10 @@
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-size: 10px; }
     .slider-container {
-  max-height: 95vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.2) transparent;
+      max-height: 95vh;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.2) transparent;
       position: absolute;
       top: 10px; left: 10px;
       background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 5px;
@@ -151,21 +151,54 @@
       z-index: 100;
       pointer-events: none;
     }
-  
-.slider-container::-webkit-scrollbar {
-  width: 6px;
-}
-.slider-container::-webkit-scrollbar-thumb {
-  background-color: rgba(255,255,255,0.2);
-  border-radius: 3px;
-}
-.slider-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-</style>
+    .slider-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    .slider-container::-webkit-scrollbar-thumb {
+      background-color: rgba(255,255,255,0.2);
+      border-radius: 3px;
+    }
+    .slider-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    .loading-bar {
+      width: 200px;
+      height: 4px;
+      background: #333;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .loading-progress {
+      height: 100%;
+      background: #0ff;
+      width: 0%;
+      transition: width 0.3s;
+    }
+  </style>
 </head>
 <body>
+  <div class="loading-screen" id="loadingScreen">
+    <div>Loading textures...</div>
+    <div class="loading-bar">
+      <div class="loading-progress" id="loadingProgress"></div>
+    </div>
+  </div>
+
   <div class="slider-container">
     <div class="panel-title">Panel de parámetros</div>
 
@@ -218,7 +251,6 @@
         <span class="slider-value random-value" id="verticalRandomValue">50</span>
       </div>
       
-      <!-- Controles para la losa -->
       <div class="control-group">
         <div class="panel-title">Configuración de Losa</div>
         <div class="control-item">
@@ -268,6 +300,7 @@
         <div class="view-buttons">
           <button id="godWireframeBtn">Wireframe</button>
           <button id="godSolidBtn" class="active">Sólido</button>
+          <button id="godPixelBtn">Pixel</button>
         </div>
         <div class="view-buttons">
           <button id="view1Btn">Axonométrica</button>
@@ -336,8 +369,6 @@
     let lastUpdateTime = 0;
     let showFloor = true;
     let isMetalWhite = false;
-    
-    // Variables para la losa
     let showSlab = true;
     let slabColor = '#228B22';
     let slabThicknessValues = [];
@@ -348,8 +379,7 @@
     let increaseSlabThickness = 5;
     let decreaseSlabThickness = 5;
     let slabThicknessRandomness = 0;
-
-    // Variables para la transición de subdivisión
+    let groundTexture, grassTexture;
     let transitionProgress = 0;
     let isTransitioning = false;
     let transitionStartTime = 0;
@@ -359,8 +389,70 @@
     let columnAppearTimes = [];
     let oldExtrusionValues = [];
     let oldVerticalOffsets = [];
+    let texturesLoaded = false;
+    let loadingProgress = 0;
+    let loadingInterval;
+
+    function preload() {
+      // Mostrar pantalla de carga
+      document.getElementById('loadingScreen').style.display = 'flex';
+      
+      // Iniciar barra de progreso simulada
+      loadingInterval = setInterval(() => {
+        loadingProgress += 5;
+        if (loadingProgress > 90) clearInterval(loadingInterval);
+        document.getElementById('loadingProgress').style.width = loadingProgress + '%';
+      }, 100);
+
+      // Cargar texturas
+      let loadedCount = 0;
+      let totalToLoad = 2;
+      
+      function onTextureLoad() {
+        loadedCount++;
+        loadingProgress = 90 + (loadedCount/totalToLoad)*10;
+        document.getElementById('loadingProgress').style.width = loadingProgress + '%';
+        
+        if (loadedCount === totalToLoad) {
+          texturesLoaded = true;
+          clearInterval(loadingInterval);
+          setTimeout(() => {
+            document.getElementById('loadingScreen').style.display = 'none';
+          }, 300);
+        }
+      }
+
+      // Cargar texturas con manejo de errores
+      try {
+        groundTexture = loadImage('textures/ground.png', 
+          () => onTextureLoad(),
+          () => {
+            console.log("Ground texture not found, using solid color");
+            onTextureLoad();
+          }
+        );
+        
+        grassTexture = loadImage('textures/grass.png', 
+          () => onTextureLoad(),
+          () => {
+            console.log("Grass texture not found, using solid color");
+            onTextureLoad();
+          }
+        );
+      } catch (e) {
+        console.log("Error loading textures:", e);
+        texturesLoaded = true;
+        document.getElementById('loadingScreen').style.display = 'none';
+      }
+    }
 
     function setup() {
+      // No crear el canvas hasta que las texturas estén cargadas
+      if (!texturesLoaded) {
+        setTimeout(setup, 100);
+        return;
+      }
+      
       createCanvas(windowWidth, windowHeight, WEBGL);
       smooth();
       updateExtrusionValues(true);
@@ -368,11 +460,27 @@
       updateSlabValues(true);
       initializeTransitionOrder();
 
+      // Configurar texturas si están cargadas
+      if (groundTexture) {
+        groundTexture.wrapS = groundTexture.wrapT = REPEAT;
+        groundTexture.filter(NEAREST, NEAREST);
+      }
+      
+      if (grassTexture) {
+        grassTexture.wrapS = grassTexture.wrapT = REPEAT;
+        grassTexture.filter(NEAREST, NEAREST);
+      }
+
       // Set initial active color and background
       document.querySelector('.color-option[data-color="#ffffff"]').style.borderColor = '#0ff';
       document.querySelector('.bg-color-option[data-bgcolor="#000000"]').style.borderColor = '#0ff';
       document.querySelector('.color-option[data-slabcolor="#228B22"]').style.borderColor = '#0ff';
 
+      // Configurar eventos de los controles
+      setupControls();
+    }
+
+    function setupControls() {
       document.getElementById('subdivisionSlider').oninput = e => {
         let newSubdivision = +e.target.value;
         document.getElementById('subdivisionValue').textContent = newSubdivision;
@@ -480,11 +588,15 @@
       };
       document.getElementById('godWireframeBtn').onclick = () => {
         viewMode = 'wireframe';
-        toggleButtonActive('godWireframeBtn', ['godSolidBtn']);
+        toggleButtonActive('godWireframeBtn', ['godSolidBtn', 'godPixelBtn']);
       };
       document.getElementById('godSolidBtn').onclick = () => {
         viewMode = 'solid';
-        toggleButtonActive('godSolidBtn', ['godWireframeBtn']);
+        toggleButtonActive('godSolidBtn', ['godWireframeBtn', 'godPixelBtn']);
+      };
+      document.getElementById('godPixelBtn').onclick = () => {
+        viewMode = 'pixel';
+        toggleButtonActive('godPixelBtn', ['godWireframeBtn', 'godSolidBtn']);
       };
       document.getElementById('view1Btn').onclick = () => {
         targetRotX = -Math.PI/6;
@@ -536,23 +648,25 @@
       });
 
       let canvas = document.querySelector('canvas');
-      canvas.onmousedown = e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
-      canvas.onmousemove = e => {
-        if (isDragging) {
-          let dx = e.clientX - lastX;
-          let dy = e.clientY - lastY;
-          keyIsDown(SHIFT) ? (panX += dx * 0.5, panY += dy * 0.5)
-                           : (targetRotY += dx * 0.01, targetRotX -= dy * 0.01);
-          lastX = e.clientX; lastY = e.clientY;
-        }
-      };
-      canvas.onmouseup = () => isDragging = false;
-      canvas.onmouseleave = () => isDragging = false;
-      canvas.onwheel = e => {
-        targetZoom += e.deltaY * -0.005;
-        targetZoom = constrain(targetZoom, 0.5, 2);
-        e.preventDefault();
-      };
+      if (canvas) {
+        canvas.onmousedown = e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
+        canvas.onmousemove = e => {
+          if (isDragging) {
+            let dx = e.clientX - lastX;
+            let dy = e.clientY - lastY;
+            keyIsDown(SHIFT) ? (panX += dx * 0.5, panY += dy * 0.5)
+                             : (targetRotY += dx * 0.01, targetRotX -= dy * 0.01);
+            lastX = e.clientX; lastY = e.clientY;
+          }
+        };
+        canvas.onmouseup = () => isDragging = false;
+        canvas.onmouseleave = () => isDragging = false;
+        canvas.onwheel = e => {
+          targetZoom += e.deltaY * -0.005;
+          targetZoom = constrain(targetZoom, 0.5, 2);
+          e.preventDefault();
+        };
+      }
     }
 
     function updateSlabValues(force = false) {
@@ -661,7 +775,69 @@
       indicator.style.transform = `rotateX(${rotationX}deg) rotateY(${rotationY}deg)`;
     }
 
+    function drawTexturedBox(w, h, d, tex) {
+      push();
+      texture(tex);
+      textureWrap(REPEAT);
+      
+      let repeatX = w / 50;
+      let repeatY = h / 50;
+      
+      // Front face
+      beginShape();
+      vertex(-w/2, -h/2, -d/2, 0, 0);
+      vertex(w/2, -h/2, -d/2, repeatX, 0);
+      vertex(w/2, h/2, -d/2, repeatX, repeatY);
+      vertex(-w/2, h/2, -d/2, 0, repeatY);
+      endShape(CLOSE);
+      
+      // Back face
+      beginShape();
+      vertex(-w/2, -h/2, d/2, 0, 0);
+      vertex(w/2, -h/2, d/2, repeatX, 0);
+      vertex(w/2, h/2, d/2, repeatX, repeatY);
+      vertex(-w/2, h/2, d/2, 0, repeatY);
+      endShape(CLOSE);
+      
+      // Left face
+      beginShape();
+      vertex(-w/2, -h/2, -d/2, 0, 0);
+      vertex(-w/2, -h/2, d/2, repeatX, 0);
+      vertex(-w/2, h/2, d/2, repeatX, repeatY);
+      vertex(-w/2, h/2, -d/2, 0, repeatY);
+      endShape(CLOSE);
+      
+      // Right face
+      beginShape();
+      vertex(w/2, -h/2, -d/2, 0, 0);
+      vertex(w/2, -h/2, d/2, repeatX, 0);
+      vertex(w/2, h/2, d/2, repeatX, repeatY);
+      vertex(w/2, h/2, -d/2, 0, repeatY);
+      endShape(CLOSE);
+      
+      // Top face
+      fill(modelColor);
+      beginShape();
+      vertex(-w/2, -h/2, -d/2, 0, 0);
+      vertex(w/2, -h/2, -d/2, repeatX, 0);
+      vertex(w/2, -h/2, d/2, repeatX, repeatY);
+      vertex(-w/2, -h/2, d/2, 0, repeatY);
+      endShape(CLOSE);
+      
+      // Bottom face
+      beginShape();
+      vertex(-w/2, h/2, -d/2, 0, 0);
+      vertex(w/2, h/2, -d/2, repeatX, 0);
+      vertex(w/2, h/2, d/2, repeatX, repeatY);
+      vertex(-w/2, h/2, d/2, 0, repeatY);
+      endShape(CLOSE);
+      
+      pop();
+    }
+
     function draw() {
+      if (!texturesLoaded) return;
+      
       let now = millis();
       if (now - lastUpdateTime < 16) return;
       lastUpdateTime = now;
@@ -728,7 +904,7 @@
         stroke(c); 
         strokeWeight(1); 
       } 
-      else { 
+      else if (viewMode === 'solid') { 
         if (isMetalWhite) {
           specularMaterial(255, 255, 255);
           shininess(50);
@@ -737,6 +913,10 @@
         }
         stroke(100); 
         strokeWeight(0.5); 
+      }
+      else if (viewMode === 'pixel') {
+        stroke(100);
+        strokeWeight(0.5);
       }
 
       if (showFloor) {
@@ -800,7 +980,11 @@
             // Aplicar efecto de escala solo en Y para el crecimiento
             scale(1, scaleY, 1);
             
-            box(boxSize * 0.95, h, boxSize * 0.95);
+            if (viewMode === 'pixel' && groundTexture) {
+              drawTexturedBox(boxSize * 0.95, h, boxSize * 0.95, groundTexture);
+            } else {
+              box(boxSize * 0.95, h, boxSize * 0.95);
+            }
             pop();
             
             if (showSlab && godMode && idx < slabThicknessValues.length && idx < slabSizeValues.length) {
@@ -809,12 +993,16 @@
               
               if (slabThickness > 0 && slabSize > 0) {
                 push();
-                if (viewMode === 'wireframe') {
-                  noFill();
-                  stroke(slabColor);
+                
+                if (viewMode === 'pixel' && grassTexture) {
+                  drawTexturedBox(slabSize, slabThickness, slabSize, grassTexture);
                 } else {
-                  fill(slabColor);
-                  stroke(80);
+                  if (viewMode === 'wireframe') {
+                    noFill();
+                    stroke(slabColor);
+                  } else {
+                    fill(slabColor);
+                  }
                 }
                 
                 // Posición de la losa (arriba de la columna)
@@ -845,6 +1033,8 @@
     }
 
     function exportGLB() {
+      if (!texturesLoaded) return;
+      
       const scene = new THREE.Scene();
       let baseSize = min(width, height) * 0.5 / subdivision;
       let boxSize = baseSize * boxSizePercent / 100;
